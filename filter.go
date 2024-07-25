@@ -460,3 +460,34 @@ func NewPeditAction() *PeditAction {
 		},
 	}
 }
+
+type NatDirection uint8
+
+const (
+	TCA_NAT_INGRESS NatDirection = iota
+	TCA_NAT_EGRESS
+)
+
+type NatAction struct {
+	ActionAttrs
+	OldAddr   net.IP
+	NewAddr   net.IP
+	Mask      net.IPMask
+	Direction NatDirection
+}
+
+func (action *NatAction) Attrs() *ActionAttrs {
+	return &action.ActionAttrs
+}
+
+func (action *NatAction) Type() string {
+	return "nat"
+}
+
+func NewNatAction() *NatAction {
+	return &NatAction{
+		ActionAttrs: ActionAttrs{
+			Action: TC_ACT_PIPE,
+		},
+	}
+}

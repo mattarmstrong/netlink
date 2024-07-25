@@ -70,6 +70,7 @@ type Flower struct {
 	IPProto       *nl.IPProto
 	DestPort      uint16
 	SrcPort       uint16
+	ArpOp         uint8
 
 	Actions []Action
 }
@@ -106,6 +107,9 @@ func (filter *Flower) encodeIP(parent *nl.RtAttr, ip net.IP, mask net.IPMask, v4
 }
 
 func (filter *Flower) encode(parent *nl.RtAttr) error {
+	if filter.ArpOp != 0 {
+		parent.AddRtAttr(nl.TCA_FLOWER_KEY_ARP_OP, []byte{filter.ArpOp})
+	}
 	if filter.EthType != 0 {
 		parent.AddRtAttr(nl.TCA_FLOWER_KEY_ETH_TYPE, htons(filter.EthType))
 	}
@@ -228,6 +232,8 @@ func (filter *Flower) decode(data []syscall.NetlinkRouteAttr) error {
 			if skipHw != 0 {
 				filter.SkipHw = true
 			}
+		case nl.TCA_FLOWER_KEY_ARP_OP:
+			filter.ArpOp = datum.Value[0]
 		}
 	}
 	return nil
@@ -730,6 +736,19 @@ func EncodeActions(attr *nl.RtAttr, actions []Action) error {
 				pedit.SetDstPort(action.DstPort, action.Proto)
 			}
 			pedit.Encode(table)
+		case *NatAction:
+			table := attr.AddRtAttr(tabIndex, nil)
+			tabIndex++
+			table.AddRtAttr(nl.TCA_ACT_KIND, nl.ZeroTerminated("nat"))
+			aopts := table.AddRtAttr(nl.TCA_ACT_OPTIONS, nil)
+			nat := nl.TcNat{
+				OldAddr: native.Uint32(action.OldAddr.To4()[:4]),
+				NewAddr: native.Uint32(action.NewAddr.To4()[:4]),
+				Mask:    native.Uint32(action.Mask[:4]),
+				Flags:   uint32(action.Direction),
+			}
+			toTcGen(action.Attrs(), &nat.TcGen)
+			aopts.AddRtAttr(nl.TCA_NAT_PARMS, nat.Serialize())
 		}
 	}
 	return nil

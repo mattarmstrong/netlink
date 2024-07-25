@@ -115,6 +115,7 @@ const (
 	SizeofTcConnmark     = SizeofTcGen + 0x04
 	SizeofTcCsum         = SizeofTcGen + 0x04
 	SizeofTcMirred       = SizeofTcGen + 0x08
+	SizeofTcNat          = SizeofTcGen + 0x16
 	SizeofTcTunnelKey    = SizeofTcGen + 0x04
 	SizeofTcSkbEdit      = SizeofTcGen
 	SizeofTcPolice       = 2*SizeofTcRateSpec + 0x20
@@ -1079,6 +1080,11 @@ const (
 	__TCA_FLOWER_MAX
 )
 
+const (
+	TCA_FLOWER_ARPOP_REQUEST = 1
+	TCA_FLOWER_ARPOP_REPLY   = 2
+)
+
 const TCA_CLS_FLAGS_SKIP_HW = 1 << 0 /* don't offload filter to HW */
 const TCA_CLS_FLAGS_SKIP_SW = 1 << 1 /* don't use filter in SW */
 
@@ -1239,8 +1245,8 @@ const (
 )
 
 // /* TCA_PEDIT_KEY_EX_HDR_TYPE_NETWROK is a special case for legacy users. It
-//  * means no specific header type - offset is relative to the network layer
-//  */
+//   - means no specific header type - offset is relative to the network layer
+//     */
 type PeditHeaderType uint16
 
 const (
@@ -1608,4 +1614,48 @@ func (p *TcPedit) SetSrcPort(srcPort uint16, protocol uint8) {
 	p.Keys = append(p.Keys, tKey)
 	p.KeysEx = append(p.KeysEx, tKeyEx)
 	p.Sel.NKeys++
+}
+
+const (
+	TCA_ACT_NAT = 9
+)
+
+const (
+	TCA_NAT_UNSPEC = iota
+	TCA_NAT_PARMS
+	TCA_NAT_TM
+	TCA_NAT_PAD
+	TCA_NAT_MAX = TCA_NAT_PAD
+)
+
+const (
+	TCA_NAT_FLAG_EGRESS = 1
+)
+
+// struct tc_nat {
+// 	tc_gen;
+// 	__be32 old_addr;
+// 	__be32 new_addr;
+// 	__be32 mask;
+// 	__u32 flags;
+// };
+
+type TcNat struct {
+	TcGen
+	OldAddr uint32
+	NewAddr uint32
+	Mask    uint32
+	Flags   uint32
+}
+
+func (msg *TcNat) Len() int {
+	return SizeofTcNat
+}
+
+func DeserializeTcNat(b []byte) *TcNat {
+	return (*TcNat)(unsafe.Pointer(&b[0:SizeofTcNat][0]))
+}
+
+func (x *TcNat) Serialize() []byte {
+	return (*(*[SizeofTcNat]byte)(unsafe.Pointer(x)))[:]
 }
